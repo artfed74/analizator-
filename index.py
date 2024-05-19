@@ -45,57 +45,43 @@ def load_audio():
                 missing_keywords, found_unwanted_words = patterns.check_keywords_presence(text, patterns.keywords, patterns.unwanted_words)
                 structure_valid = patterns.check_text_structure(text, patterns.pattern)
 
-                # Очистка текстового виджета перед добавлением нового текста
+                # Очистка текстовых виджетов перед добавлением нового текста
+                converted_text.delete(1.0, tk.END)
                 result_text.delete(1.0, tk.END)
-                
-                # Добавление распознанного текста
-                result_text.insert(tk.END, f"Распознанный текст: {text}\n\n")
-                
-                # Выделение найденных нежелательных слов
-                if found_unwanted_words:
-                    for word in found_unwanted_words:
-                        start_index = result_text.search(word, 1.0, tk.END)
-                        while start_index:
-                            end_index = f"{start_index}+{len(word)}c"
-                            result_text.tag_add("unwanted", start_index, end_index)
-                            start_index = result_text.search(word, end_index, tk.END)
+
+                # Добавление конвертированного текста и выделение нежелательных слов
+                converted_text.insert(tk.END, "Конвертированный текст:\n")
+                for word in text.split():
+                    if word in found_unwanted_words:
+                        converted_text.insert(tk.END, word + " ", "unwanted")
+                    else:
+                        converted_text.insert(tk.END, word + " ")
+                converted_text.insert(tk.END, "\n\n")
 
                 # Проверка на ключевые слова и структуру
-                if missing_keywords:
-                    result_text.insert(tk.END, f"Ключевые слова не найдены: {', '.join(missing_keywords)}\n")
                 if found_unwanted_words:
-                    result_text.insert(tk.END, f"Найдены нежелательные слова: {', '.join(found_unwanted_words)}\n")
-                if structure_valid:
-                    result_text.insert(tk.END, "Текст соответствует ожидаемой структуре.")
+                    result_text.insert(tk.END, f"Найдено нежелательное слово: {', '.join(found_unwanted_words)}\n", "unwanted")
                 else:
-                    result_text.insert(tk.END, "Текст не соответствует ожидаемой структуре.")
-                    
+                    result_text.insert(tk.END, "Нежелательные слова не найдены.\n", "normal")
+                
+                if missing_keywords:
+                    result_text.insert(tk.END, f"Ключевые слова не найдены: {', '.join(missing_keywords)}\n", "missing")
+                if structure_valid:
+                    result_text.insert(tk.END, "Текст соответствует ожидаемой структуре.\n", "valid")
+                else:
+                    result_text.insert(tk.END, "Текст не соответствует ожидаемой структуре.\n", "invalid")
+
                 # Обновление текста метки с количеством нарушений
                 violations_label.config(text="Нарушения в данном аудио:", fg=label_color)
             except sr.UnknownValueError:
                 print("Google Speech Recognition не смог распознать аудио")
-                result_text.insert(tk.END, "Google Speech Recognition не смог распознать аудио\n")
+                result_text.insert(tk.END, "Google Speech Recognition не смог распознать аудио\n", "error")
             except sr.RequestError as e:
                 print("Ошибка при запросе к Google Speech Recognition:", e)
-                result_text.insert(tk.END, f"Ошибка при запросе к Google Speech Recognition: {e}\n")
+                result_text.insert(tk.END, f"Ошибка при запросе к Google Speech Recognition: {e}\n", "error")
         except Exception as e:
             print("Ошибка при конвертации аудио:", e)
-            result_text.insert(tk.END, f"Ошибка при конвертации аудио: {e}\n")
-
-def create_rounded_image(image_path, size, radius):
-    # Загрузка изображения
-    img = Image.open(image_path).resize(size, Image.Resampling.LANCZOS)
-
-    # Создание маски с закругленными углами
-    mask = Image.new('L', size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle((0, 0, size[0], size[1]), radius=radius, fill=255)
-
-    # Применение маски к изображению
-    rounded_img = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
-    rounded_img.putalpha(mask)
-
-    return rounded_img
+            result_text.insert(tk.END, f"Ошибка при конвертации аудио: {e}\n", "error")
 
 # Создание главного окна
 root = tk.Tk()
@@ -115,54 +101,66 @@ y_position = (screen_height - window_height) // 2
 root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
 # Установка цветовой схемы РЖД
-bg_color = "#78909C"  # Приглушенный синий цвет фона
+bg_color = "#e9eaed"  # Приглушенный серый цвет фона
 fg_color = "#ffffff"  # Белый цвет текста
 button_color = "#d52b1e"  # Красный цвет кнопки РЖД
 button_hover_color = "#ba2419"  # Более темный красный для hover
 text_color = "#ffffff"  # Белый цвет текста
-label_color = "#ffffff"  # Белый цвет текста для меток РЖД
+text_color_src = "#767d89"  # Серый цвет для отображения пути файла
+label_color = "#000000"  # Белый цвет текста для меток РЖД
 
 root.configure(bg=bg_color)
 
 # Путь к логотипу РЖД
-logo_path = "rzd_logo.png"
+logo_path = "rzd_logo.png"  # Добавил эту строку
 
-# Создание изображения с закругленными углами
-rounded_logo_image = create_rounded_image(logo_path, (100, 100), 100)
-logo = ImageTk.PhotoImage(rounded_logo_image)
+# Создание блока для логотипа и названия приложения
+header_block = tk.Frame(root, bg="#ffffff", width=window_width, height=100)
+header_block.pack(side="top", fill="x")
+
+# Загрузка изображения логотипа без скругления
+logo_image = Image.open(logo_path).resize((100, 100), Image.LANCZOS)
+logo = ImageTk.PhotoImage(logo_image)
 
 # Создание метки для отображения логотипа
 logo_label = tk.Label(root, image=logo, bg=bg_color)
-logo_label.place(x=10, y=10)  # Размещение логотипа в верхнем левом углу
+logo_label.place(x=-0.7, y=-0.7)  # Размещение логотипа в верхнем левом углу
+
+# Создание метки с дополнительным текстом в верхнем правом углу
+additional_label = tk.Label(root, text="Анализатор переговоров РЖД", font=("Helvetica", 28), bg=fg_color, fg=label_color)
+additional_label.place(relx=1.0, x=-30, y=30, anchor="ne")  # небольшой сдвиг на -30 по оси x
 
 # Создание метки для отображения количества нарушений
 violations_label = tk.Label(root, text="", font=("Helvetica", 12), bg=bg_color, fg=label_color)
 violations_label.pack(pady=10)
 
 # Создание кнопки для загрузки аудио-сообщения
-button = tk.Button(root, text="Загрузить аудио-сообщение", command=load_audio, bg=button_color, fg="white", font=("Helvetica", 12, "bold"), activebackground=button_hover_color, activeforeground="white")
-button.pack(pady=10)
+button = tk.Button(root, text="Загрузить аудио-сообщение", command=load_audio, bg="#e31b1a", fg="white", font=("Helvetica", 12, "bold"), padx=15, pady=15, bd=0, relief=tk.FLAT)
+button.pack(side="top", pady=(0, 10))
 button.bind("<Enter>", on_enter)
 button.bind("<Leave>", on_leave)
 
-# Создание метки для отображения пути к загруженному файлу
-file_label = tk.Label(root, text="", font=("Helvetica", 10), bg=bg_color, fg=label_color)
-file_label.pack(pady=10)
+# Создание метку для отображения пути к загруженному файлу
+file_label = tk.Label(root, text="", font=("Helvetica", 10), bg=bg_color, fg=text_color_src)
+file_label.pack(side="top", pady=(0, 10))
 
-# Создание текстового виджета для отображения распознанного текста
-result_text = tk.Text(root, font=("Helvetica", 12), bg=bg_color, fg=text_color, wrap="word", height=20, width=70)
-result_text.pack(pady=10)
+# Создание рамки для обоих текстовых виджетов
+text_frame = tk.Frame(root, bg=bg_color)
+text_frame.pack(pady=10)
 
-# Добавление тегов для выделения
+# Создание текстового виджета для отображения конвертированного текста
+converted_text = tk.Text(text_frame, font=("Helvetica", 12), bg="white", fg="black", wrap="word", height=10, width=35)
+converted_text.tag_config("unwanted", foreground="red")
+converted_text.grid(row=0, column=0, padx=5)
+
+# Создание текстового виджета для отображения результатов проверки
+result_text = tk.Text(text_frame, font=("Helvetica", 12), bg="white", wrap="word", height=10, width=35)
 result_text.tag_config("unwanted", foreground="red")
-
-# Создание метки с дополнительным текстом
-additional_label = tk.Label(root, text="Анализатор переговоров РЖД", font=("Helvetica", 14), bg=bg_color, fg=text_color)
-additional_label.pack(pady=5)
-
-# Создание рамки для визуального элемента
-visual_frame = tk.Frame(root, bg=bg_color)
-visual_frame.pack(pady=5)
+result_text.tag_config("missing", foreground="blue")
+result_text.tag_config("valid", foreground="green")
+result_text.tag_config("invalid", foreground="orange")
+result_text.tag_config("error", foreground="purple")
+result_text.grid(row=0, column=1, padx=5)
 
 # Запуск главного цикла обработки событий
 root.mainloop()
